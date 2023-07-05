@@ -537,3 +537,112 @@ begin
 	
  end architecture;
 
+---------------------------------------------
+--RTL
+---------------------------------------------
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity DigitalSensor is
+	port(	
+	data: in std_logic;
+	clock: in std_logic;
+	reset: in std_logic;
+	display: out std_logic_vector(41 downto 0);
+	led: out std_logic;
+	switch2: in std_logic;
+	switch1: in std_logic;
+	switch0: in std_logic;
+	key3: in std_logic;
+	key2: in std_logic;
+	key1: in std_logic;
+	leds: out std_logic_vector(6 downto 0);
+	act: out std_logic_vector(1 downto 0)
+	);
+end entity;
+
+architecture DigitalSensor_arch of DigitalSensor is
+
+component ClockDivider is
+	port(
+    	clock_in: in std_logic;
+        clock_out: out std_logic
+    );
+
+end component;
+
+component ClockDivider2 is
+	port(
+		 clock_in: in std_logic;
+       clock_out: out std_logic
+    );
+
+end component;
+
+component Decoder IS
+	PORT ( 
+    Data: IN STD_LOGIC;
+    clock  : IN std_logic; --clock de f = 0.2MHz, T = 5micro-segundos
+    reset   : IN std_logic;
+	 ShiftEnable: OUT std_logic;
+    DataOut: OUT std_logic
+    );
+END component;
+
+component shift_register IS 
+	port   (  
+      sys_rst : in std_logic;
+      enable: in std_logic;
+      dado_entrada : in std_logic;  
+      dado_saida : out std_logic_vector(15 downto 0)
+ );  
+ end component; 
+
+component HMI is
+	port (
+    	binary_input : in std_logic_vector(15 downto 0);
+		control: in std_logic_vector(2 downto 0);
+		tempMin: in integer;
+		tempMax: in integer;
+		scale: in integer;
+      display_output : out std_logic_vector(41 downto 0)
+    );
+end component HMI;
+
+component UC is
+	port(
+	reset: in std_logic;
+	clock: in std_logic;
+	switch_scale: in std_logic;
+	switch_range: in std_logic;
+	switch_active: in  std_logic;
+	key_incrementor: in std_logic;
+	key_decrementor: in std_logic;
+	key_selector: in std_logic;
+	control: out std_logic_vector(2 downto 0);
+	tempMin: out integer := 0;
+	tempMax: out integer := 30;
+	scale: out integer;
+	action: out std_logic_vector(1 downto 0)
+	);
+end component UC;
+
+signal clock_div, clock_div2, data1: std_logic;
+signal enable, enable2: std_logic;
+signal data2: std_logic_vector(15 downto 0);
+signal controle: std_logic_vector(2 downto 0);
+signal min, escala: integer;
+signal max: integer := 30;
+
+begin
+
+UC_Clock_Divider: clockdivider2 port map(clock, clock_div);
+Decoder_Clock_Divider: clockdivider port map(clock, clock_div2);
+dec: decoder port map(data, clock_div2, reset, enable, data1);
+shi: shift_register port map(reset, enable, data1, data2);
+uc_component: UC port map(reset, clock_div, switch2, switch1, switch0, key3, key2, key1, controle, min, max, escala, act);
+hm: HMI port map(data2, controle, min, max, escala, display);
+
+
+end architecture;
