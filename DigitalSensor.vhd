@@ -88,3 +88,78 @@ end process clkdiv;
 clock_out <= clock_intermed;
 
 end ClkDiv_arc2;
+
+------------------------------
+--DECODER
+------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+ENTITY shift_register IS 
+	port   (  
+      sys_rst : in std_logic;
+      enable: in std_logic;
+      dado_entrada : in std_logic;  
+      dado_saida : out std_logic_vector(15 downto 0)
+      
+ );  
+ end shift_register; 
+ 
+architecture shift_arc of shift_register is  
+signal dado_registrado, dado_registrado_out : std_logic_vector (15 downto 0);  
+signal word: std_logic;
+begin  
+
+clk: process(enable,sys_rst)  
+begin  
+	if (sys_rst = '0') then  
+      dado_registrado <= "0000000000000000";  
+	elsif(enable'EVENT) AND (enable ='1')  THEN 
+      dado_registrado(14 downto 0) <= dado_registrado(15 downto 1);  
+      dado_registrado(15) <= dado_entrada;  
+	end if;  
+end process;
+
+contador: process(enable)
+    VARIABLE contador  : NATURAL RANGE 0 to 17 := 0;
+	begin
+	if (enable'EVENT) AND (enable ='1')  THEN    
+    	word <= '0';							-- word recebe 1 quando há um dado completo de 16 bits a ser apresentado na saída do registrador
+    	contador := contador + 1;
+    	if contador = 16 THEN
+       		contador := 0;
+       		word <= '1';
+    	end if;
+    end if;
+end process contador;
+
+update: process(word)
+	begin
+		if(word'EVENT and word = '1') then
+			dado_registrado_out <= dado_registrado;
+		end if;
+end process update;
+dado_saida <= dado_registrado_out;  
+
+end architecture;  
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity Decoder IS
+	PORT ( 
+    Data: IN STD_LOGIC;
+    clock  : IN std_logic; 
+    reset   : IN std_logic;
+	 ShiftEnable: OUT std_logic;
+    DataOut: OUT std_logic
+    );
+END Decoder;
+
+architecture Decoder_arc of Decoder is
+	begin
+
+end architecture;
