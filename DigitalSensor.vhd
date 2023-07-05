@@ -369,3 +369,171 @@ begin
 	 display_7 <= "000001110000010100100010010000001101001100";
 	
 end architecture HMI_arch;
+
+---------------------------------------------
+--UC
+---------------------------------------------
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity UC is
+	port(
+	reset: in std_logic;
+	clock: in std_logic;
+	switch_scale: in std_logic;
+	switch_range: in std_logic;
+	switch_active: in  std_logic;
+	key_incrementor: in std_logic;
+	key_decrementor: in std_logic;
+	key_selector: in std_logic;
+	control: out std_logic_vector(2 downto 0);
+	tempMin: out integer := 0;
+	tempMax: out integer := 30;
+	scale: out integer;
+	action: out std_logic_vector(1 downto 0)
+	);
+end UC;
+
+architecture UC_arch of UC is
+
+signal escala: integer := 0;
+signal min: natural := 0;
+signal max: natural := 30;
+signal controle: std_logic_vector(2 downto 0);
+signal buzzerS, alarmS: std_logic;
+
+type state is (s0, s1, s2, s3, s4, s5, s6, s7);
+signal atual, proximo: state := s0;
+
+begin
+	
+	scale <= escala;
+	tempMin <= min;
+	tempMax <= max;
+	control <= controle;
+	action(0) <= buzzerS;
+	action(1) <= alarmS;
+	
+	escolha_proximo_estado: process(key_incrementor, key_decrementor, key_selector, switch_scale, switch_range, atual) is
+		begin
+		
+		case atual is
+		when s0 =>
+			if (switch_scale = '1') then 
+				proximo <= s1; 
+			elsif (switch_range = '1') then 
+				proximo <= s4;  
+			elsif (switch_active = '1') then 
+				proximo <= s6; 
+			else 
+				proximo <= s0;
+			end if;
+	   when s1 => 
+			if ((key_incrementor = '0') and (key_decrementor = '1') and (key_selector = '1')) then 
+				proximo <= s2; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '0') and (key_selector = '1')) then 
+				proximo <= s3; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then
+				proximo <= s0;
+				escala <= 0;
+			else
+				proximo <= s1; 
+			end if;
+		when s2 =>
+			if ((key_incrementor = '0') and (key_decrementor = '1') and (key_selector = '1')) then 
+				proximo <= s3; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '0') and (key_selector = '1')) then 
+				proximo <= s1; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then
+				proximo <= s0;
+				escala <= 1;
+			else
+				proximo <= s2;
+				end if;
+		when s3 =>
+			if ((key_incrementor = '0') and (key_decrementor = '1') and (key_selector = '1')) then 
+				proximo <= s1; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '0') and (key_selector = '1')) then 
+				proximo <= s2; 
+			elsif ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then
+				proximo <= s0;
+				escala <= 2;
+			else
+				proximo <= s3; 
+				end if;
+		when s4 =>
+			if ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then 
+				proximo <= s5;
+			else 
+				proximo <= s4; 
+			end if;
+		when s5 =>
+			if ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then 
+				proximo <= s0; 
+			else 
+				proximo <= s5; 
+			end if;
+		when s6 =>
+			if ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then 
+				proximo <= s0;  
+				buzzerS <= '0';
+				alarmS  <= '1';
+			elsif (((key_incrementor = '0') or (key_decrementor = '0')) and (key_selector = '1')) then 
+				proximo <= s7; 
+			else 
+				proximo <= s6; 
+			end if;
+		when s7 =>
+			if ((key_incrementor = '1') and (key_decrementor = '1') and (key_selector = '0')) then 
+				proximo <= s0;
+				buzzerS <= '1';
+				alarmS  <= '0';
+			elsif (((key_incrementor = '0') or (key_decrementor = '0')) and (key_selector = '1')) then 
+				proximo <= s6; 
+			else 
+				proximo <= s7; 
+			end if;
+		end case;
+		
+		end process;
+	
+	SM: process(clock) is
+	begin
+		if reset = '0' then
+			atual <= s0;
+		elsif (clock'EVENT and clock = '1') then
+			atual <= proximo;
+		end if;
+	end process;
+	
+	escolha_min_max: process (key_decrementor, key_decrementor, atual) is
+	VARIABLE minV  : integer RANGE 0 to 30 := 0;
+	VARIABLE maxV  : integer RANGE 0 to 30 := 30;
+	begin
+		
+		case atual is
+			when s4 =>
+				if(key_decrementor = '0' and key_incrementor = '1') then minV := minV - 1; elsif (key_decrementor = '1' and key_incrementor = '0') then minV := minV + 1; else end if;
+			when s5 =>
+				if(key_decrementor = '0' and key_incrementor = '1') then maxV := maxV - 1; elsif (key_decrementor = '1' and key_incrementor = '0') then maxV := maxV + 1; else  end if;
+			when others =>
+
+		end case;
+		max <= maxV;
+		min <= minV;
+	end process;
+	
+	
+	controle <= "001" when atual = s1 else
+				   "010" when atual = s2 else
+				   "011" when atual = s3 else
+				   "100" when atual = s4 else
+				   "101" when atual = s5 else
+				   "110" when atual = s6 else
+					"111" when atual = s7 else
+					"000";
+	
+ end architecture;
+
